@@ -92,20 +92,13 @@
         </div>
       </div>
       <!-- Events -->
-      <div
-        id="events"
-        class="relative"
-        @mousemove="handleMouseMove"
-        @mouseleave="handleMouseLeave"
-      >
+      <div id="events" class="relative">
         <!-- events -->
 
         <div
           v-for="(event, index) in events"
           :key="index"
           :data-index="index"
-          :data-x="getEventLeft(event.start)"
-          :data-y="getEventRow(event.identiferIdx)"
           :class="event.meta?.class || 'bg-blue-500'"
           :style="{
             height: `${rowHeight}px`,
@@ -113,7 +106,8 @@
             left: `${getEventLeft(event.start)}px`,
             top: `${getEventRow(event.identiferIdx)}px`,
           }"
-          class="z-10 draggable flex absolute"
+          class="z-10 flex absolute draggable"
+          v-draggable-event="event"
         >
           <slot name="event" :event="event" />
           <!-- resize handle -->
@@ -197,6 +191,89 @@ const DEFAULT_OPTIONS: Options = {
   timeFormat: "HH:mm",
 };
 
+const draggableEvent = {
+  mounted(element, binding) {
+    if (!element || !binding.instance.cellWidth) return;
+
+    interact(element)
+      .resizable({
+        // resize from all edges and corners
+        edges: { left: false, right: true, bottom: false, top: false },
+        listeners: {
+          move(event) {
+            const selectedEvent = binding.value;
+            const width = event.rect.width;
+            const scale = binding.instance.scale;
+            const minutes = Math.round(
+              (width / binding.instance.cellWidth) * scale * 60.0
+            ); // convert width to time based on the scale
+
+            // remove decimal from timeLength
+
+            const startDateObject = selectedEvent.start;
+            const endDateObject = new Date(
+              new Date(startDateObject).setMinutes(
+                startDateObject.getMinutes() + minutes
+              )
+            );
+            selectedEvent.end = endDateObject;
+          },
+        },
+        modifiers: [
+          // keep the edges inside the parent
+          interact.modifiers.restrictEdges({
+            outer: "parent",
+          }),
+          // minimum size
+          interact.modifiers.restrictSize({
+            min: { width: 100, height: binding.instance.rowHeight },
+          }),
+        ],
+        inertia: false,
+      })
+      .draggable({
+        listeners: { move: window.dragMoveListener },
+        modifiers: [
+          interact.modifiers.snap({
+            targets: [
+              interact.snappers.grid({
+                x: 10,
+                y: binding.instance.rowHeight || 50,
+              }),
+            ],
+            range: Infinity,
+            relativePoints: [{ x: 0, y: 0 }],
+            offset: "#events",
+          }),
+          interact.modifiers.restrict({
+            restriction: "parent",
+            elementRect: { top: 0, left: 0, bottom: 1, right: 0 },
+            endOnly: false,
+          }),
+        ],
+        inertia: true,
+      })
+      .on("dragmove", function (event) {
+        const selectedEvent = binding.value;
+        const scale = binding.instance.scale;
+        const minutes = (event.dx / binding.instance.cellWidth) * scale * 60.0; // convert width to time based on the scale
+        selectedEvent.start = new Date(
+          selectedEvent.start.setMinutes(
+            selectedEvent.start.getMinutes() + minutes
+          )
+        );
+        selectedEvent.end = new Date(
+          selectedEvent.end.setMinutes(selectedEvent.end.getMinutes() + minutes)
+        );
+
+        selectedEvent.identiferIdx += Math.floor(
+          event.dy / binding.instance.rowHeight
+        );
+        event.target.style.transform = "translate(0px,0px)";
+      });
+  },
+};
+
 export default defineComponent({
   name: "VueSchedulerV2",
   props: {
@@ -224,6 +301,9 @@ export default defineComponent({
       type: Date,
       required: true,
     },
+  },
+  directives: {
+    draggableEvent,
   },
   setup(props) {
     const cellWidth =
@@ -298,7 +378,6 @@ export default defineComponent({
       const start = new Date(props.start);
       const timeDifference = (eventStart.getTime() - start.getTime()) / 60000;
       const left = (timeDifference / 60 / scale.value) * cellWidth.value;
-
       return left;
     }
 
@@ -362,127 +441,8 @@ export default defineComponent({
       }
     };
 
-    /**
-     * Drag move listener
-     * @param event
-     * @returns {void}
-     */
-    function dragMoveListener(event: MouseEvent) {
-      // console.log(event.target.attributes[0]);
-      const target = event.target as HTMLElement; // Cast event.target to HTMLElement
-
-      // extract x and y from css (event.target.style.transform)
-      // keep the dragged position in the data-x/data-y attributes
-      const x = parseFloat(target.getAttribute("data-x") ?? "0") || 0;
-      const y = parseFloat(target.getAttribute("data-y") ?? "0") || 0;
-
-      // translate the element
-      // target.style.transform = "translate(" + x + "px, " + y + "px)";
-      // target.style.left = x + "px";
-      // target.style.top = y + "px";
-
-      // update the posiion attributes
-      // target.setAttribute("data-x", x.toString());
-      // target.setAttribute("data-y", y.toString());
-    }
-
-    /**
-     * Initialize the draggable and resizable elements
-     * @param element
-     * @returns {void}
-     */
-    const initDraggable = (element: HTMLDivElement) => {
-      if (!element || !cellWidth.value) return;
-      window.dragMoveListener = dragMoveListener;
-
-      let x = 0;
-      let y = 0;
-
-      interact(element)
-        .resizable({
-          // resize from all edges and corners
-          edges: { left: false, right: true, bottom: false, top: false },
-          listeners: {
-            move(event) {
-              const dataIndex: number = parseInt(
-                element.getAttribute("data-index") ?? "0"
-              );
-              const selectedEvent = propData.value[dataIndex];
-              const width = event.rect.width;
-              const minutes = Math.round(
-                (width / cellWidth.value) * scale.value * 60
-              ); // convert width to time based on the scale
-
-              // remove decimal from timeLength
-              const match = selectedEvent.start.match(
-                /(\d{2})\/(\d{2})\/(\d{4}) (\d{2}:\d{2})/
-              );
-              if (match) {
-                const [, startDay, startMonth, startYear, startTime] = match;
-                const startDateObject = new Date(
-                  `${startYear}-${startMonth}-${startDay}T${startTime}`
-                );
-                const endDateObject = startDateObject.setMinutes(
-                  startDateObject.getMinutes() + minutes
-                );
-
-                // convert endDateObject back to DD/MM/YYYY HH:mm
-                const endTime = new Date(endDateObject);
-
-                propData.value[dataIndex].end = `${endTime.getDate()}/${
-                  endTime.getMonth() + 1
-                }/${endTime.getFullYear()} ${endTime.getHours()}:${endTime.getMinutes()}`;
-              }
-            },
-          },
-          modifiers: [
-            // keep the edges inside the parent
-            interact.modifiers.restrictEdges({
-              outer: "parent",
-            }),
-            // minimum size
-            interact.modifiers.restrictSize({
-              min: { width: 100, height: rowHeight.value },
-            }),
-          ],
-          inertia: false,
-        })
-        .draggable({
-          listeners: { move: window.dragMoveListener },
-          modifiers: [
-            interact.modifiers.snap({
-              targets: [
-                interact.snappers.grid({ x: 10, y: rowHeight.value || 50 }),
-              ],
-              range: Infinity,
-              relativePoints: [{ x: 0, y: 0 }],
-              offset: "#events",
-            }),
-            interact.modifiers.restrict({
-              restriction: "parent",
-              elementRect: { top: 0, left: 0, bottom: 1, right: 0 },
-              endOnly: false,
-            }),
-          ],
-          inertia: true,
-        })
-        .on("dragmove", function (event) {
-          x += event.dx;
-          y += event.dy;
-          event.target.setAttribute("data-x", x.toString());
-          event.target.setAttribute("data-y", y.toString());
-          // event.target.style.transform = "translate(" + x + "px, " + y + "px)";
-          // event.target.style.left = x + "px";
-          // event.target.style.top = y + "px";
-          // updateEvent(event.target as HTMLDivElement, x, y);
-        });
-    };
-
     onMounted(() => {
       setScale();
-      document.querySelectorAll(".draggable").forEach((element: Element) => {
-        initDraggable(element as HTMLDivElement);
-      });
     });
 
     return {
@@ -498,3 +458,9 @@ export default defineComponent({
   },
 });
 </script>
+<style>
+.draggable {
+  touch-action: none;
+  user-select: none;
+}
+</style>

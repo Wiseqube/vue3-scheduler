@@ -1,52 +1,4 @@
 <template>
-  <div class="mx-auto hidden">
-    <!-- github link -->
-    <div class="mx-2 flex justify-end mt-4">
-      <a
-        href="https://github.com/tony-nz/vue3-scheduler"
-        target="_blank"
-        class="text-xs text-gray-400"
-      >
-        <span class="mr-2"
-          >Created by tony-nz
-          <span class="text-xs text-gray-300">(Tony Myers)</span></span
-        >
-        <img src="/github.svg" alt="github" class="w-4 h-4 inline-block mr-2" />
-      </a>
-    </div>
-    <VueScheduler
-      :data="timelineData"
-      :headers="timelineHeaders"
-      :items="timelineItems"
-      :options="timelineOptions"
-    >
-      <template #event="{ event }">
-        <div
-          :class="[
-            event.background,
-            event.text,
-            'p-2',
-            'w-full',
-            'rounded-lg',
-            'shadow-md',
-            'text-xs',
-            'text-left',
-            'text-xs',
-            'rounded-md',
-            'text-nowrap',
-            'overflow-auto',
-            'opacity-80',
-            'truncate',
-          ]"
-        >
-          <div class="flex flex-col truncate">
-            <div class="font-bold">{{ event.meta?.title }}</div>
-            <div class="text-slate-200">{{ event.meta?.description }}</div>
-          </div>
-        </div>
-      </template>
-    </VueScheduler>
-  </div>
   <div>
     <VueSchedulerV2
       :end="newEnd"
@@ -55,6 +7,7 @@
       :identifiers="timelineItems"
       :options="newOptions"
       :start="newStart"
+      @resized="resized"
     >
       <template #event="{ event }">
         <div class="flex flex-col truncate p-2 text-xs text-white">
@@ -89,7 +42,6 @@ interface Event {
 export default defineComponent({
   name: "App",
   components: {
-    VueScheduler,
     VueSchedulerV2,
   },
   setup() {
@@ -184,6 +136,10 @@ export default defineComponent({
       ["BMON-G", "08:00am"],
     ];
 
+    function resized(evt) {
+      console.log(evt);
+    }
+
     /**
      * Timeline options
      */
@@ -246,6 +202,7 @@ export default defineComponent({
       newEnd,
       newOptions,
       newData,
+      resized,
     };
   },
 });

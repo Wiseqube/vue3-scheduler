@@ -94,46 +94,27 @@
       <!-- Events -->
       <div id="events" class="relative">
         <!-- events -->
-
-        <div
+        <TimelineEvent
           v-for="(event, index) in events"
           :key="index"
-          :data-index="index"
-          :class="event.meta?.class || 'bg-blue-500'"
-          :style="{
-            height: `${rowHeight}px`,
-            width: `${getEventWidth(event.start, event.end)}px`,
-            left: `${getEventLeft(event.start)}px`,
-            top: `${getEventRow(event.identiferIdx)}px`,
-          }"
-          class="z-10 flex absolute draggable"
-          v-draggable-event="event"
+          :event="event"
+          :row-height="rowHeight"
+          :cell-width="cellWidth"
+          :scale="scale"
+          :start="start"
+          @resize="eventResized"
+          @dragged="eventDragged"
         >
-          <slot name="event" :event="event" />
-          <!-- resize handle -->
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 192 512"
-            class="absolute right-0 h-4 w-4 resize-handle"
-            :style="{
-              top: `${rowHeight / 3}px`,
-            }"
-          >
-            <path
-              class="opacity-40 fill-white"
-              d="M0 64C0 46.33 14.33 32 32 32C49.67 32 64 46.33 64 64V448C64 465.7 49.67 480 32 480C14.33 480 0 465.7 0 448V64z"
-            />
-            <path
-              class="opacity-40 fill-white"
-              d="M128 64C128 46.33 142.3 32 160 32C177.7 32 192 46.33 192 64V448C192 465.7 177.7 480 160 480C142.3 480 128 465.7 128 448V64z"
-            />
-          </svg>
-        </div>
+          <template v-slot:event="slotData"
+            ><slot name="event" v-bind="slotData"></slot
+          ></template>
+        </TimelineEvent>
         <!-- Empty event grid -->
         <div
           v-for="(_row, index) in identifiers"
           :key="index"
           class="flex dropzone"
+          ref="dropzones"
         >
           <div
             v-for="(_time, timeIdx) in getTimeline"
@@ -161,7 +142,9 @@
 </template>
 <script lang="ts">
 import { computed, defineComponent, onMounted, PropType, ref } from "vue";
+import { Target, ResizeEvent } from "@interactjs/types";
 import interact from "interactjs";
+import TimelineEvent from "./TimelineEvent.vue";
 
 interface Event {
   identiferIdx: number;
@@ -175,12 +158,12 @@ interface Event {
 }
 
 interface Options {
-  cellWidth?: number;
-  rowHeight?: number;
-  scaleUnit?: string;
+  cellWidth: number;
+  rowHeight: number;
+  scaleUnit: string;
   scaleCustom?: number;
-  scrollSpeed?: number;
-  timeFormat?: string;
+  scrollSpeed: number;
+  timeFormat: string;
 }
 
 const DEFAULT_OPTIONS: Options = {
@@ -191,91 +174,9 @@ const DEFAULT_OPTIONS: Options = {
   timeFormat: "HH:mm",
 };
 
-const draggableEvent = {
-  mounted(element, binding) {
-    if (!element || !binding.instance.cellWidth) return;
-
-    interact(element)
-      .resizable({
-        // resize from all edges and corners
-        edges: { left: false, right: true, bottom: false, top: false },
-        listeners: {
-          move(event) {
-            const selectedEvent = binding.value;
-            const width = event.rect.width;
-            const scale = binding.instance.scale;
-            const minutes = Math.round(
-              (width / binding.instance.cellWidth) * scale * 60.0
-            ); // convert width to time based on the scale
-
-            // remove decimal from timeLength
-
-            const startDateObject = selectedEvent.start;
-            const endDateObject = new Date(
-              new Date(startDateObject).setMinutes(
-                startDateObject.getMinutes() + minutes
-              )
-            );
-            selectedEvent.end = endDateObject;
-          },
-        },
-        modifiers: [
-          // keep the edges inside the parent
-          interact.modifiers.restrictEdges({
-            outer: "parent",
-          }),
-          // minimum size
-          interact.modifiers.restrictSize({
-            min: { width: 100, height: binding.instance.rowHeight },
-          }),
-        ],
-        inertia: false,
-      })
-      .draggable({
-        listeners: { move: window.dragMoveListener },
-        modifiers: [
-          interact.modifiers.snap({
-            targets: [
-              interact.snappers.grid({
-                x: 10,
-                y: binding.instance.rowHeight || 50,
-              }),
-            ],
-            range: Infinity,
-            relativePoints: [{ x: 0, y: 0 }],
-            offset: "#events",
-          }),
-          interact.modifiers.restrict({
-            restriction: "parent",
-            elementRect: { top: 0, left: 0, bottom: 1, right: 0 },
-            endOnly: false,
-          }),
-        ],
-        inertia: true,
-      })
-      .on("dragmove", function (event) {
-        const selectedEvent = binding.value;
-        const scale = binding.instance.scale;
-        const minutes = (event.dx / binding.instance.cellWidth) * scale * 60.0; // convert width to time based on the scale
-        selectedEvent.start = new Date(
-          selectedEvent.start.setMinutes(
-            selectedEvent.start.getMinutes() + minutes
-          )
-        );
-        selectedEvent.end = new Date(
-          selectedEvent.end.setMinutes(selectedEvent.end.getMinutes() + minutes)
-        );
-
-        selectedEvent.identiferIdx += Math.floor(
-          event.dy / binding.instance.rowHeight
-        );
-        event.target.style.transform = "translate(0px,0px)";
-      });
-  },
-};
-
 export default defineComponent({
   name: "VueSchedulerV2",
+  components: { TimelineEvent },
   props: {
     end: {
       type: Date,
@@ -302,12 +203,10 @@ export default defineComponent({
       required: true,
     },
   },
-  directives: {
-    draggableEvent,
-  },
   setup(props) {
-    const cellWidth =
-      ref(props.options?.cellWidth) || DEFAULT_OPTIONS.cellWidth;
+    const cellWidth = ref(
+      props.options?.cellWidth || DEFAULT_OPTIONS.cellWidth
+    );
     const rowHeight = ref(
       props.options?.rowHeight || DEFAULT_OPTIONS.rowHeight
     );
@@ -315,6 +214,7 @@ export default defineComponent({
     const scaleIngrement = ref(0.5);
     const scrollDown = ref(0);
     const scrollUp = ref(0);
+    const dropzones = ref<Target>();
 
     /**
      * Generate the timeline based on the scale
@@ -390,6 +290,50 @@ export default defineComponent({
       return identiferIdx * rowHeight.value;
     }
 
+    function eventResized({
+      event,
+      timelineEvent,
+    }: {
+      event: ResizeEvent;
+      timelineEvent: Event;
+    }) {
+      const width = event.rect.width;
+      const minutes = Math.round(
+        (width / cellWidth.value) * scale.value * 60.0
+      ); // convert width to time based on the scale
+
+      // remove decimal from timeLength
+
+      const startDateObject = timelineEvent.start;
+      const endDateObject = new Date(
+        new Date(startDateObject).setMinutes(
+          startDateObject.getMinutes() + minutes
+        )
+      );
+      timelineEvent.end = endDateObject;
+    }
+
+    function eventDragged({
+      x,
+      y,
+      timelineEvent,
+    }: {
+      x: number;
+      y: number;
+      timelineEvent: Event;
+    }) {
+      const minutes = (x / cellWidth.value) * scale.value * 60.0; // convert width to time based on the scale
+      timelineEvent.start = new Date(
+        timelineEvent.start.setMinutes(
+          timelineEvent.start.getMinutes() + minutes
+        )
+      );
+      timelineEvent.end = new Date(
+        timelineEvent.end.setMinutes(timelineEvent.end.getMinutes() + minutes)
+      );
+
+      timelineEvent.identiferIdx += Math.floor(y / rowHeight.value);
+    }
     /**
      * Scroll to zoom in and out
      * @param e
@@ -443,6 +387,22 @@ export default defineComponent({
 
     onMounted(() => {
       setScale();
+      if (dropzones.value !== undefined) {
+        interact(dropzones.value)
+          .dropzone({
+            ondrop: function (event) {
+              alert(
+                event.relatedTarget.id + " was dropped into " + event.target.id
+              );
+            },
+            ondragenter: function (event) {
+              console.log("ondragenter");
+            },
+          })
+          .on("dropactivate", function (event) {
+            event.target.classList.add("drop-activated");
+          });
+      }
     });
 
     return {
@@ -454,6 +414,9 @@ export default defineComponent({
       getEventRow,
       scale,
       onWheel,
+      eventResized,
+      eventDragged,
+      dropzones,
     };
   },
 });

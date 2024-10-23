@@ -1,13 +1,12 @@
 <template>
   <div>
-    <VueSchedulerV2
+    <VueScheduler
       :end="newEnd"
       :events="newData"
       :headers="timelineHeaders"
       :identifiers="timelineItems"
       :options="newOptions"
       :start="newStart"
-      @resized="resized"
     >
       <template #event="{ event }">
         <div class="flex flex-col truncate p-2 text-xs text-white">
@@ -17,7 +16,7 @@
           <div class="text-slate-300">{{ event.end }}</div>
         </div>
       </template>
-    </VueSchedulerV2>
+    </VueScheduler>
   </div>
 </template>
 
@@ -25,7 +24,6 @@
 import { defineComponent, ref } from "vue";
 import { TimelineItem, TimelineOptions } from "./types/VueScheduler";
 import VueScheduler from "./components/VueScheduler.vue";
-import VueSchedulerV2 from "./components/VueSchedulerV2.vue";
 
 interface Event {
   identiferIdx: number;
@@ -42,7 +40,7 @@ interface Event {
 export default defineComponent({
   name: "App",
   components: {
-    VueSchedulerV2,
+    VueScheduler,
   },
   setup() {
     /**
@@ -136,10 +134,6 @@ export default defineComponent({
       ["BMON-G", "08:00am"],
     ];
 
-    function resized(evt) {
-      console.log(evt);
-    }
-
     /**
      * Timeline options
      */
@@ -178,7 +172,7 @@ export default defineComponent({
         meta: {
           title: "Event 1",
           description: "Event 1 description",
-          class: "bg-emerald-500 opacity-80 rounded-md",
+          class: "bg-emerald-500 rounded-md",
         },
       },
       {
@@ -188,7 +182,7 @@ export default defineComponent({
         meta: {
           title: "Event 2",
           description: "Event 2 description",
-          class: "bg-orange-500 opacity-80 rounded-md",
+          class: "bg-orange-500 rounded-md",
         },
       },
     ]);
@@ -202,7 +196,6 @@ export default defineComponent({
       newEnd,
       newOptions,
       newData,
-      resized,
     };
   },
 });

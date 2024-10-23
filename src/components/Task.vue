@@ -51,7 +51,7 @@ interface Event {
 }
 
 export default defineComponent({
-  name: "TimelineEvent",
+  name: "Task",
   props: {
     event: {
       type: Object as PropType<Event>,
@@ -132,7 +132,7 @@ export default defineComponent({
               }),
               // minimum size
               interact.modifiers.restrictSize({
-                min: { width: 100, height: props.rowHeight },
+                min: { width: props.cellWidth || 100, height: props.rowHeight },
               }),
               interact.modifiers.snap({
                 targets: [
@@ -150,6 +150,7 @@ export default defineComponent({
             inertia: false,
           })
           .draggable({
+            origin: { x: 0, y: 0 },
             listeners: {
               move: function (event) {
                 position.x += event.dx;

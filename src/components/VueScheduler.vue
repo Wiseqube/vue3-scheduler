@@ -94,11 +94,11 @@
           v-for="(_row, index) in identifiers"
           :key="index"
           class="flex dropzone"
+          ref="dropzones"
         >
           <div
             v-for="(_time, timeIdx) in getTimeline"
             :key="timeIdx"
-            ref="dropzones"
             class="timeslot text-center relative p-2.5 border-b border-gray-20 border-r text-xs text-white leading-10 text-medium"
             :style="{
               'min-width': `${cellWidth}px`,
@@ -183,7 +183,7 @@ export default defineComponent({
       props.options?.rowHeight || DEFAULT_OPTIONS.rowHeight
     );
     const scale = ref(0.5);
-    const scaleIngrement = ref(0.5);
+    const scaleIngrement = ref(props.options?.scaleCustom || 0.5);
     const scrollDown = ref(0);
     const scrollUp = ref(0);
     const dropzones = ref<Array<Target>>();
@@ -269,11 +269,19 @@ export default defineComponent({
       event: ResizeEvent;
       timelineEvent: Event;
     }) {
+      const resolution = 15.0;
       const width = event.rect.width;
-      const minutes = Math.round(
-        (width / cellWidth.value) * scale.value * 60.0
-      ); // convert width to time based on the scale
+      let minutes = Math.round((width / cellWidth.value) * scale.value * 60.0); // convert width to time based on the scale
 
+      const distance = minutes % resolution;
+      if (distance > resolution / 2) {
+        minutes += resolution - distance;
+      } else {
+        minutes -= distance;
+      }
+      if (minutes < resolution) {
+        minutes = resolution;
+      }
       // remove decimal from timeLength
 
       const startDateObject = timelineEvent.start;
@@ -322,7 +330,10 @@ export default defineComponent({
       if (event.deltaY > 0) {
         scrollDown.value++;
         if (scrollDown.value === props.options?.scrollSpeed) {
-          scale.value = Math.max(scale.value - scaleIngrement.value, 0.5); // Limit the scale to 0.5
+          scale.value = Math.max(
+            scale.value - scaleIngrement.value,
+            props.options?.scaleCustom || 0.5
+          ); // Limit the scale to 0.5
           scrollDown.value = 0;
         }
       }
@@ -374,7 +385,7 @@ export default defineComponent({
               ) {
                 const rect = dropzone.getRect(dropElement);
                 const dragRect = draggable.getRect(draggableElement);
-                if (dragRect) {
+                if (dragRect && rect) {
                   const cx = dragRect.left + rect.width / 2;
                   const cy = dragRect.top + dragRect.height / 2;
                   dropped =
@@ -433,7 +444,11 @@ export default defineComponent({
   user-select: none;
 }
 
-.drop-target.timeslot {
-  background-color: aqua;
+.dropzone.drop-target {
+  background-color: rgb(213, 250, 213);
+}
+
+#events {
+  width: fit-content;
 }
 </style>

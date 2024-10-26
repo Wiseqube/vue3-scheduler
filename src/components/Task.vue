@@ -1,6 +1,6 @@
 <template>
   <div
-    :class="event.meta?.class || 'bg-blue-500'"
+    :class="['event', event.meta?.class || 'bg-blue-500']"
     :style="{
       height: `${rowHeight}px`,
       width: `${getEventWidth(event.start, event.end)}px`,
@@ -130,22 +130,6 @@ export default defineComponent({
               interact.modifiers.restrictEdges({
                 outer: "parent",
               }),
-              // minimum size
-              interact.modifiers.restrictSize({
-                min: { width: props.cellWidth || 100, height: props.rowHeight },
-              }),
-              interact.modifiers.snap({
-                targets: [
-                  interact.snappers.grid({
-                    x: props.cellWidth || 100,
-                    y: props.rowHeight || 50,
-                  }),
-                ],
-                range: Infinity,
-                relativePoints: [{ x: 0, y: 0 }],
-                offset: "#events",
-                endOnly: true,
-              }),
             ],
             inertia: false,
           })
@@ -179,7 +163,7 @@ export default defineComponent({
                 ],
                 range: Infinity,
                 relativePoints: [{ x: 0, y: 0 }],
-                offset: "#events",
+                offset: "parent",
                 endOnly: true,
               }),
               interact.modifiers.restrict({
@@ -189,6 +173,7 @@ export default defineComponent({
               }),
             ],
             inertia: true,
+            autoScroll: true,
           });
       }
     });
@@ -202,3 +187,8 @@ export default defineComponent({
   },
 });
 </script>
+<style>
+.event {
+  transition: width 0.05s linear;
+}
+</style>

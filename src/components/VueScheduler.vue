@@ -15,17 +15,11 @@
           v-for="(header, index) in headers"
           :key="index"
           class="grid w-full text-left items-center relative p-2.5 mr-px text-xs text-gray-100 bg-slate-500"
-          :style="
-            'min-width: ' +
-            cellWidth +
-            'px; ' +
-            'min-height: ' +
-            rowHeight +
-            'px; ' +
-            'max-height: ' +
-            rowHeight +
-            'px; '
-          "
+          :style="{
+            'min-width': `${cellWidth}px`,
+            'min-height': `${rowHeight}px`,
+            'max-height': `${rowHeight}px`,
+          }"
         >
           {{ header }}
         </div>
@@ -41,17 +35,11 @@
             v-for="col in identifier"
             :key="col"
             class="grid w-full text-left relative border-b p-2.5 mr-px bg-white text-xs text-gray-400 leading-10 text-medium"
-            :style="
-              'min-width: ' +
-              cellWidth +
-              'px; ' +
-              'min-height: ' +
-              rowHeight +
-              'px; ' +
-              'max-height: ' +
-              rowHeight +
-              'px; '
-            "
+            :style="{
+              'min-width': `${cellWidth}px`,
+              'min-height': `${rowHeight}px`,
+              'max-height': `${rowHeight}px`,
+            }"
           >
             {{ col }}
           </div>
@@ -70,20 +58,12 @@
           v-for="time in getTimeline"
           :key="time.id"
           class="overflow-hidden text-center items-center relative p-2.5 border-r bg-slate-500 text-xs text-gray-100"
-          :style="
-            'min-width: ' +
-            cellWidth +
-            'px; ' +
-            'max-width: ' +
-            cellWidth +
-            'px; ' +
-            'min-height: ' +
-            rowHeight +
-            'px; ' +
-            'max-height: ' +
-            rowHeight +
-            'px; '
-          "
+          :style="{
+            'min-width': `${cellWidth}px`,
+            'max-width': `${cellWidth}px`,
+            'min-height': `${rowHeight}px`,
+            'max-height': `${rowHeight}px`,
+          }"
         >
           <span>
             {{ time.formattedDate }}
@@ -120,20 +100,12 @@
             :key="timeIdx"
             ref="dropzones"
             class="timeslot text-center relative p-2.5 border-b border-gray-20 border-r text-xs text-white leading-10 text-medium"
-            :style="
-              'min-width: ' +
-              cellWidth +
-              'px; ' +
-              'max-width: ' +
-              cellWidth +
-              'px; ' +
-              'min-height: ' +
-              rowHeight +
-              'px; ' +
-              'max-height: ' +
-              rowHeight +
-              'px; '
-            "
+            :style="{
+              'min-width': `${cellWidth}px`,
+              'max-width': `${cellWidth}px`,
+              'min-height': `${rowHeight}px`,
+              'max-height': `${rowHeight}px`,
+            }"
           />
         </div>
       </div>

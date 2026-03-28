@@ -10,7 +10,10 @@
       class="w-[250px] border-r rounded-l-lg bg-gray-300 mr-px overflow-hidden overscroll-noner"
     >
       <!-- Headers -->
-      <div id="headers" class="flex border-b">
+      <div
+        id="headers"
+        class="flex border-b"
+      >
         <div
           v-for="(header, index) in headers"
           :key="index"
@@ -25,7 +28,10 @@
         </div>
       </div>
       <!-- Identifiers -->
-      <div id="identifiers" class="relative">
+      <div
+        id="identifiers"
+        class="relative"
+      >
         <div
           v-for="(identifier, index) in identifiers"
           :key="index"
@@ -48,12 +54,15 @@
     </div>
     <!-- Timeline + Events (second column) -->
     <div
-      @wheel="onWheel"
       id="second-column"
       class="flex flex-col overflow-auto rounded-r-lg"
+      @wheel="onWheel"
     >
       <!-- Timeline -->
-      <div id="timeline" class="flex border-b">
+      <div
+        id="timeline"
+        class="flex border-b"
+      >
         <div
           v-for="time in getTimeline"
           :key="time.id"
@@ -72,7 +81,10 @@
         </div>
       </div>
       <!-- Events -->
-      <div id="events" class="relative">
+      <div
+        id="events"
+        class="relative"
+      >
         <!-- events -->
         <Task
           v-for="(event, index) in events"
@@ -85,16 +97,19 @@
           @resize="eventResized"
           @dragged="eventDragged"
         >
-          <template v-slot:event="slotData"
-            ><slot name="event" v-bind="slotData"></slot
-          ></template>
+          <template #event="slotData">
+            <slot
+              name="event"
+              v-bind="slotData"
+            />
+          </template>
         </Task>
         <!-- Empty event grid -->
         <div
           v-for="(_row, index) in identifiers"
           :key="index"
-          class="flex dropzone"
           ref="dropzones"
+          class="flex dropzone"
         >
           <div
             v-for="(_time, timeIdx) in getTimeline"
@@ -172,6 +187,7 @@ export default defineComponent({
     options: {
       type: Object as PropType<Options>,
       required: false,
+      default: DEFAULT_OPTIONS,
     },
     start: {
       type: Date,

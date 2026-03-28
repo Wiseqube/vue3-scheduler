@@ -10,8 +10,12 @@
     >
       <template #event="{ event }">
         <div class="flex flex-col truncate p-2 text-xs text-white">
-          <div class="font-bold">{{ event.meta?.title }}</div>
-          <div class="text-slate-200">{{ event.meta?.description }}</div>
+          <div class="font-bold">
+            {{ event.meta?.title }}
+          </div>
+          <div class="text-slate-200">
+            {{ event.meta?.description }}
+          </div>
           <div class="text-slate-300">
             {{ event.start.toLocaleString() }}
           </div>

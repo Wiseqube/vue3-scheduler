@@ -1,5 +1,6 @@
 <template>
   <div
+    ref="elem"
     :class="['event', event.meta?.class || 'bg-blue-500']"
     :style="{
       height: `${rowHeight}px`,
@@ -10,10 +11,12 @@
     data-x="0"
     data-y="0"
     class="draggable"
-    ref="elem"
   >
     <div class="event-content">
-      <slot name="event" :event="event" />
+      <slot
+        name="event"
+        :event="event"
+      />
     </div>
     <!-- resize handle -->
     <svg

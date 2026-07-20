@@ -24,4 +24,13 @@ interface TimeSpan {
   color: string;
   timelines?: Array<number>;
 }
-export type { Event, Options, TimeSpan };
+
+interface Shift {
+  id: number,
+  name: string;
+  start: Date;
+  end: Date;
+  color?: string;
+}
+
+export type { Event, Options, TimeSpan, Shift };

@@ -26,9 +26,20 @@
           min="1"
           step="1"
         >
+        <label
+          for="show_shifts"
+          class="demo-label"
+        >Show Shifts</label>
+        <input
+          id="show_shifts"
+          v-model="show_shifts"
+          type="checkbox"
+          name="show_shifts"
+        >
       </div>
     </div>
     <VueScheduler
+      v-if="!show_shifts"
       :end="end"
       :events="data"
       :headers="timelineHeaders"
@@ -54,18 +65,49 @@
         </div>
       </template>
     </VueScheduler>
+    <template v-else>
+      <VueShiftScheduler
+        :end="end"
+        :events="data"
+        :headers="timelineHeaders"
+        :identifiers="timelineItems"
+        :options="options"
+        :start="start"
+        :spans="timespans"
+        :shifts="shifts"
+      >
+        <template #event="{ event }">
+          <div class="event-body">
+            <div class="event-title">
+              {{ event.meta?.title }}
+            </div>
+            <div class="event-desc">
+              {{ event.meta?.description }}
+            </div>
+            <div class="event-time">
+              {{ event.start.toLocaleString() }}
+            </div>
+            <div class="event-time">
+              {{ event.end.toLocaleString() }}
+            </div>
+          </div>
+        </template>
+      </VueShiftScheduler>
+    </template>
   </div>
 </template>
 
 <script lang="ts">
 import { defineComponent, ref } from "vue";
 import VueScheduler from "./components/VueScheduler.vue";
-import { Event, Options, TimeSpan } from "./types/VueScheduler";
+import { Event, Options, TimeSpan, Shift } from "./types/VueScheduler";
+import VueShiftScheduler from "./components/VueShiftScheduler.vue";
 
 export default defineComponent({
   name: "App",
   components: {
     VueScheduler,
+    VueShiftScheduler,
   },
   setup() {
     const timelineHeaders = ref(["Route", "Start time"]);
@@ -88,8 +130,10 @@ export default defineComponent({
       rowHeight: 81,
       scale: 8,
       timeFormat: "HH:mm",
-      dateFormat: "yyyy-MM-dd",
+      dateFormat: "yyyy-MM-dd",  
     });
+
+    const show_shifts = ref(false);
 
     const data = ref<Event[]>([
       {
@@ -128,6 +172,90 @@ export default defineComponent({
       },
     ]);
 
+    const shifts = ref<Shift[]>([
+      // 1st february
+      {
+        id: 1,
+        name: "Frühschicht",
+        start: new Date(2024, 1, 1, 6, 0),
+        end: new Date(2024, 1, 1, 14, 0),
+        color: "#3b82f6",
+      },
+      {
+        id: 2,
+        name: "Spätschicht",
+        start: new Date(2024, 1, 1, 14, 0),
+        end: new Date(2024, 1, 1, 22, 0),
+        color: "#f59e0b",
+      },
+      {
+        id: 3,
+        name: "Nachtschicht",
+        start: new Date(2024, 1, 1, 22, 0),
+        end: new Date(2024, 1, 2, 6, 0),
+        color: "#6366f1",
+      },
+
+      // 2nd february
+      {
+        id: 4,
+        name: "Frühschicht",
+        start: new Date(2024, 1, 2, 6, 0),
+        end: new Date(2024, 1, 2, 14, 0),
+        color: "#3b82f6",
+      },
+      {
+        id: 5,
+        name: "Spätschicht",
+        start: new Date(2024, 1, 2, 14, 0),
+        end: new Date(2024, 1, 2, 22, 0),
+        color: "#f59e0b",
+      },
+
+      // 3rd february
+      {
+        id: 6,
+        name: "Wochenenddienst",
+        start: new Date(2024, 1, 3, 8, 0),
+        end: new Date(2024, 1, 3, 18, 0),
+        color: "#10b981",
+      },
+
+      // 5th february
+      {
+        id: 7,
+        name: "Frühschicht",
+        start: new Date(2024, 1, 5, 6, 0),
+        end: new Date(2024, 1, 5, 14, 0),
+        color: "#3b82f6",
+      },
+      {
+        id: 8,
+        name: "Spätschicht",
+        start: new Date(2024, 1, 5, 14, 0),
+        end: new Date(2024, 1, 5, 22, 0),
+        color: "#f59e0b",
+      },
+
+      // 10th february
+      {
+        id: 9,
+        name: "Sonderschicht",
+        start: new Date(2024, 1, 10, 10, 0),
+        end: new Date(2024, 1, 10, 16, 0),
+        color: "#ef4444",
+      },
+
+      // 15th february
+      {
+        id: 10,
+        name: "Inventur",
+        start: new Date(2024, 1, 15, 7, 0),
+        end: new Date(2024, 1, 15, 19, 0),
+        color: "#8b5cf6",
+      },
+    ]);
+
     return {
       timelineHeaders,
       timelineItems,
@@ -136,6 +264,8 @@ export default defineComponent({
       options,
       data,
       timespans,
+      shifts,
+      show_shifts,
     };
   },
 });

@@ -1,8 +1,33 @@
 <template>
   <div
     class="vs-scheduler"
-    style="grid-template-areas: 'grid1 grid2 grid2 grid2 grid2 '"
+    style="
+      grid-template-areas:
+        'header-left header-right'
+        'left right';
+    "
   >
+    <div class="vs-header-left">
+      <slot
+        name="header-left"
+        :get_elem_left="getElemLeft"
+        :get_elem_width="getElemWidth"
+        :start
+        :cell_width="cellWidth"
+        :scale
+      />
+    </div>
+
+    <div class="vs-header-right">
+      <slot
+        name="header-right"
+        :get_elem_left="getElemLeft"
+        :get_elem_width="getElemWidth"
+        :start
+        :cell_width="cellWidth"
+        :scale
+      />
+    </div>
     <!-- Headers + Identifers (first column) -->
     <div
       class="vs-first-col"
@@ -64,6 +89,16 @@
           </span>
         </div>
       </div>
+
+      <slot
+        name="header-border-lines"
+        :get_elem_left="getElemLeft"
+        :get_elem_width="getElemWidth"
+        :start
+        :cell_width="cellWidth"
+        :scale
+      />
+
       <!-- Events -->
       <div class="vs-events">
         <!-- events -->
@@ -365,6 +400,7 @@ export default defineComponent({
 .vs-scheduler {
   display: grid;
   grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr;
   height: 100%;
   border-radius: 0.5rem;
   overflow: hidden;
@@ -374,6 +410,9 @@ export default defineComponent({
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 0.75rem;
   line-height: 1.5;
+  grid-template-areas:
+    "shift-left shift-right"
+    "left       right";
 }
 
 .vs-first-col {
@@ -387,6 +426,7 @@ export default defineComponent({
   margin-right: 1px;
   overflow: hidden;
   min-width: fit-content;
+  grid-area: left;
 }
 
 .vs-headers {
@@ -427,6 +467,8 @@ export default defineComponent({
   overflow: auto;
   border-top-right-radius: 0.5rem;
   border-bottom-right-radius: 0.5rem;
+  grid-area: right;
+  position: relative;
 }
 
 .vs-timeline {
@@ -487,4 +529,14 @@ export default defineComponent({
 .vs-timespan {
   position: absolute;
 }
+
+.vs-header-left {
+  display: grid;
+  grid-template-columns: repeat(var(--header-count), auto);
+}
+
+.vs-header-right {
+  grid-area: header-right;
+}
+
 </style>

@@ -1,22 +1,20 @@
 <template>
   <div
-    id="vue3-scheduler"
-    class="grid h-full rounded-lg overflow-hidden overscroll-none bg-gray-100 p-3"
+    class="vs-scheduler"
     style="grid-template-areas: 'grid1 grid2 grid2 grid2 grid2 '"
   >
     <!-- Headers + Identifers (first column) -->
     <div
-      id="first-column"
-      class="w-[250px] border-r rounded-l-lg bg-gray-300 mr-px overflow-hidden overscroll-noner"
+      class="vs-first-col"
+      :style="{ gridTemplateColumns: `repeat(${headers.length}, auto)` }"
     >
       <!-- Headers -->
-      <div id="headers" class="flex border-b">
+      <div class="vs-headers">
         <div
           v-for="(header, index) in headers"
           :key="index"
-          class="grid w-full text-left items-center relative p-2.5 mr-px text-xs text-gray-100 bg-slate-500"
+          class="vs-header-cell"
           :style="{
-            'min-width': `${cellWidth}px`,
             'min-height': `${rowHeight}px`,
             'max-height': `${rowHeight}px`,
           }"
@@ -25,18 +23,17 @@
         </div>
       </div>
       <!-- Identifiers -->
-      <div id="identifiers" class="relative">
+      <div class="vs-identifiers">
         <div
           v-for="(identifier, index) in identifiers"
           :key="index"
-          class="flex flex-row w-full"
+          class="vs-identifier-row"
         >
           <div
             v-for="col in identifier"
             :key="col"
-            class="grid w-full text-left relative border-b p-2.5 mr-px bg-white text-xs text-gray-400 leading-10 text-medium"
+            class="vs-identifier-cell"
             :style="{
-              'min-width': `${cellWidth}px`,
               'min-height': `${rowHeight}px`,
               'max-height': `${rowHeight}px`,
             }"
@@ -47,17 +44,13 @@
       </div>
     </div>
     <!-- Timeline + Events (second column) -->
-    <div
-      @wheel="onWheel"
-      id="second-column"
-      class="flex flex-col overflow-auto rounded-r-lg"
-    >
+    <div class="vs-second-col">
       <!-- Timeline -->
-      <div id="timeline" class="flex border-b">
+      <div class="vs-timeline">
         <div
           v-for="time in getTimeline"
           :key="time.id"
-          class="overflow-hidden text-center items-center relative p-2.5 border-r bg-slate-500 text-xs text-gray-100"
+          class="vs-timeline-cell"
           :style="{
             'min-width': `${cellWidth}px`,
             'max-width': `${cellWidth}px`,
@@ -72,7 +65,7 @@
         </div>
       </div>
       <!-- Events -->
-      <div id="events" class="relative">
+      <div class="vs-events">
         <!-- events -->
         <Task
           v-for="(event, index) in events"
@@ -85,21 +78,40 @@
           @resize="eventResized"
           @dragged="eventDragged"
         >
-          <template v-slot:event="slotData"
-            ><slot name="event" v-bind="slotData"></slot
-          ></template>
+          <template #event="slotData">
+            <slot
+              name="event"
+              v-bind="slotData"
+            />
+          </template>
         </Task>
         <!-- Empty event grid -->
         <div
           v-for="(_row, index) in identifiers"
           :key="index"
-          class="flex dropzone"
           ref="dropzones"
+          class="dropzone"
         >
+          <!-- Timespans underneath the event grid -->
+          <template
+            v-for="(span, spanIdx) in spans"
+            :key="spanIdx"
+          >
+            <div
+              v-if="!span.timelines || span.timelines.includes(index)"
+              :class="['vs-timespan', span.color]"
+              :style="{
+                height: `${rowHeight}px`,
+                width: `${getElemWidth(span.start, span.end, cellWidth, scale)}px`,
+                left: `${getElemLeft(start, span.start, cellWidth, scale)}px`,
+                top: `${index * rowHeight}px`,
+              }"
+            />
+          </template>
           <div
             v-for="(_time, timeIdx) in getTimeline"
             :key="timeIdx"
-            class="timeslot text-center relative p-2.5 border-b border-gray-20 border-r text-xs text-white leading-10 text-medium"
+            class="vs-timeslot"
             :style="{
               'min-width': `${cellWidth}px`,
               'max-width': `${cellWidth}px`,
@@ -108,43 +120,29 @@
             }"
           />
         </div>
+        <!-- Row separators rendered above timespans (z-index: 2) but below events (z-index: 10) -->
+        <div
+          v-for="(_, index) in identifiers"
+          :key="`sep-${index}`"
+          class="vs-row-sep"
+          :style="{ top: `${(index + 1) * rowHeight - 1}px` }"
+        />
       </div>
     </div>
   </div>
 </template>
 <script lang="ts">
-import { computed, defineComponent, onMounted, PropType, ref } from "vue";
+import { computed, defineComponent, PropType, ref, watchEffect } from "vue";
 import { Target, ResizeEvent } from "@interactjs/types";
 import interact from "interactjs";
 import { format } from "date-fns";
 import Task from "./Task.vue";
-
-interface Event {
-  identiferIdx: number;
-  start: Date;
-  end: Date;
-  meta?: {
-    class?: string;
-    description?: string;
-    title?: string;
-  };
-}
-
-interface Options {
-  cellWidth: number;
-  rowHeight: number;
-  scaleUnit: string;
-  scaleCustom?: number;
-  scrollSpeed: number;
-  timeFormat: string;
-  dateFormat: string;
-}
+import { Options, Event, TimeSpan } from "../types/VueScheduler";
+import { getElemLeft, getElemRow, getElemWidth } from "../util/position";
 
 const DEFAULT_OPTIONS: Options = {
   cellWidth: 100,
   rowHeight: 50,
-  scaleUnit: "minutes",
-  scrollSpeed: 5,
   timeFormat: "HH:mm",
   dateFormat: "yyyy-MM-dd",
 };
@@ -172,36 +170,33 @@ export default defineComponent({
     options: {
       type: Object as PropType<Options>,
       required: false,
+      default: DEFAULT_OPTIONS,
     },
     start: {
       type: Date,
       required: true,
     },
+    spans: {
+      type: Array<TimeSpan>,
+      required: false,
+      default: [],
+    },
   },
   setup(props) {
     const cellWidth = computed(
-      () => (props.options?.cellWidth || DEFAULT_OPTIONS.cellWidth)
-    )
+      () => props.options?.cellWidth || DEFAULT_OPTIONS.cellWidth,
+    );
     const rowHeight = computed(
-      () => (props.options?.rowHeight || DEFAULT_OPTIONS.cellWidth)
-    )
-    const scale = ref(0.5);
-    const scaleIngrement = ref(props.options?.scaleCustom || 0.5);
-    const scrollDown = ref(0);
-    const scrollUp = ref(0);
+      () => props.options?.rowHeight || DEFAULT_OPTIONS.cellWidth,
+    );
+    const scale = computed(() => props.options?.scale || 0.5);
+    const resolution = computed(() => props.options?.resizeResolution || 15.0);
     const dropzones = ref<Array<Target>>();
 
-    /**
-     * Generate the timeline based on the scale
-     * @param scale
-     * @returns {Array} Array of strings representing the time slots
-     */
     function generateTimeline() {
       const timeSlots = [];
       const start = new Date(props.start);
       const end = new Date(props.end);
-
-      // convert scale from decimal to minutes
       const scaleInMinutes = scale.value * 60;
 
       for (
@@ -212,55 +207,21 @@ export default defineComponent({
         timeSlots.push({
           id: i.getTime(),
           date: i,
-          // formattedTime: i.toLocaleTimeString(),
-          // hh:mm am/pm
-          formattedDate: format(i, props.options?.dateFormat || DEFAULT_OPTIONS.dateFormat),
-          formattedTime: format(i, props.options?.timeFormat || DEFAULT_OPTIONS.timeFormat),
+          formattedDate: format(
+            i,
+            props.options?.dateFormat || DEFAULT_OPTIONS.dateFormat,
+          ),
+          formattedTime: format(
+            i,
+            props.options?.timeFormat || DEFAULT_OPTIONS.timeFormat,
+          ),
         });
       }
 
       return timeSlots;
     }
 
-    /**
-     * Get the timeline
-     */
     const getTimeline = computed(() => generateTimeline());
-
-    /**
-     * Get event width
-     * @param start
-     * @param end
-     * @returns {number} Width of the event
-     */
-    function getEventWidth(start: Date, end: Date) {
-      const duration = (end.getTime() - start.getTime()) / 60000;
-      if (!cellWidth.value) return 0;
-
-      return (duration / 60 / scale.value) * cellWidth.value;
-    }
-
-    /**
-     * Get event left
-     * @param start
-     * @returns {number} Left position of the event
-     */
-    function getEventLeft(eventStart: Date) {
-      if (!cellWidth.value) return 0;
-      const start = new Date(props.start);
-      const timeDifference = (eventStart.getTime() - start.getTime()) / 60000;
-      const left = (timeDifference / 60 / scale.value) * cellWidth.value;
-      return left;
-    }
-
-    /**
-     * Get event row
-     * @param identiferIdx
-     * @returns {number} Top position of the event
-     */
-    function getEventRow(identiferIdx: number) {
-      return identiferIdx * rowHeight.value;
-    }
 
     function eventResized({
       event,
@@ -269,26 +230,24 @@ export default defineComponent({
       event: ResizeEvent;
       timelineEvent: Event;
     }) {
-      const resolution = 15.0;
       const width = event.rect.width;
-      let minutes = Math.round((width / cellWidth.value) * scale.value * 60.0); // convert width to time based on the scale
+      let minutes = Math.round((width / cellWidth.value) * scale.value * 60.0);
 
-      const distance = minutes % resolution;
-      if (distance > resolution / 2) {
-        minutes += resolution - distance;
+      const distance = minutes % resolution.value;
+      if (distance > resolution.value / 2) {
+        minutes += resolution.value - distance;
       } else {
         minutes -= distance;
       }
-      if (minutes < resolution) {
-        minutes = resolution;
+      if (minutes < resolution.value) {
+        minutes = resolution.value;
       }
-      // remove decimal from timeLength
 
       const startDateObject = timelineEvent.start;
       const endDateObject = new Date(
         new Date(startDateObject).setMinutes(
-          startDateObject.getMinutes() + minutes
-        )
+          startDateObject.getMinutes() + minutes,
+        ),
       );
       timelineEvent.end = endDateObject;
     }
@@ -302,136 +261,93 @@ export default defineComponent({
       y: number;
       timelineEvent: Event;
     }) {
-      const minutes = (x / cellWidth.value) * scale.value * 60.0; // convert width to time based on the scale
+      const minutes = (x / cellWidth.value) * scale.value * 60.0;
       timelineEvent.start = new Date(
         timelineEvent.start.setMinutes(
-          timelineEvent.start.getMinutes() + minutes
-        )
+          timelineEvent.start.getMinutes() + minutes,
+        ),
       );
       timelineEvent.end = new Date(
-        timelineEvent.end.setMinutes(timelineEvent.end.getMinutes() + minutes)
+        timelineEvent.end.setMinutes(timelineEvent.end.getMinutes() + minutes),
       );
 
-      const newIx = timelineEvent.identiferIdx + Math.floor(y / rowHeight.value);
-      timelineEvent.identiferIdx = Math.min(Math.max(0, newIx), props.identifiers.length);
+      const newIx =
+        timelineEvent.identiferIdx + Math.floor(y / rowHeight.value);
+      timelineEvent.identiferIdx = Math.min(
+        Math.max(0, newIx),
+        props.identifiers.length,
+      );
     }
-    /**
-     * Scroll to zoom in and out
-     * @param e
-     * @returns {void}
-     */
-    const onWheel = (event: WheelEvent) => {
-      if (event.deltaY < 0) {
-        scrollUp.value++;
-        if (scrollUp.value === props.options?.scrollSpeed) {
-          scale.value = Math.min(scale.value + scaleIngrement.value, 5); // Limit the scale to 5
-          scrollUp.value = 0;
-        }
-      }
-      if (event.deltaY > 0) {
-        scrollDown.value++;
-        if (scrollDown.value === props.options?.scrollSpeed) {
-          scale.value = Math.max(
-            scale.value - scaleIngrement.value,
-            props.options?.scaleCustom || 0.5
-          ); // Limit the scale to 0.5
-          scrollDown.value = 0;
-        }
-      }
-    };
 
-    const setScale = () => {
-      // check if custom scale is set
-      if (props.options?.scaleCustom) {
-        scale.value = props.options.scaleCustom;
-        return;
-      }
+    watchEffect((onCleanup) => {
+      const zones = dropzones.value;
+      if (!zones?.length) return;
 
-      switch (props.options?.scaleUnit) {
-        case "minutes":
-          // if minute scroll by 0.5
-          scale.value = 0.5;
-          scaleIngrement.value = 0.5;
-          break;
-        case "hours":
-          // if hour scroll by 1.0
-          scale.value = 1.0;
-          scaleIngrement.value = 1.0;
-          break;
-        case "days":
-          // if day scroll by 24.0
-          scale.value = 24.0;
-          scaleIngrement.value = 24.0;
-          break;
-        default:
-          scale.value = 0.5;
-          scaleIngrement.value = 0.5;
-      }
-    };
-
-    onMounted(() => {
-      setScale();
-      if (dropzones.value !== undefined) {
-        dropzones.value.forEach((value) =>
-          interact(value)
-            .dropzone({
-              checker: function (
-                _dragEvent,
-                _event,
-                dropped,
-                dropzone,
-                dropElement,
-                draggable,
-                draggableElement
-              ) {
-                const rect = dropzone.getRect(dropElement);
-                const dragRect = draggable.getRect(draggableElement);
-                if (dragRect && rect) {
-                  const cx = dragRect.left + rect.width / 2;
-                  const cy = dragRect.top + dragRect.height / 2;
-                  dropped =
-                    cx >= rect.left &&
-                    cx <= rect.right &&
-                    cy >= rect.top &&
-                    cy <= rect.bottom;
-                }
-                return dropped;
-              },
-              ondrop: function (event) {
-                const draggableElement = event.relatedTarget;
-                const dropzoneElement = event.target;
-                dropzoneElement.classList.remove("drop-target");
-                draggableElement?.classList.remove("-drop-possible");
-              },
-              ondragenter: function (event) {
-                const draggableElement = event.relatedTarget;
-                const dropzoneElement = event.target;
-                dropzoneElement.classList.add("drop-target");
-                draggableElement?.classList.add("-drop-possible");
-              },
-              ondragleave: function (event) {
-                const draggableElement = event.relatedTarget;
-                const dropzoneElement = event.target;
-                dropzoneElement.classList.remove("drop-target");
-                draggableElement?.classList.remove("-drop-possible");
-              },
-            })
-            .on("dropactivate", function (event) {
-              event.target.classList.add("drop-activated");
-            })
+      zones.forEach((value) =>
+        interact(value)
+          .dropzone({
+            checker: function (
+              _dragEvent,
+              _event,
+              dropped,
+              dropzone,
+              dropElement,
+              draggable,
+              draggableElement,
+            ) {
+              const rect = dropzone.getRect(dropElement);
+              const dragRect = draggable.getRect(draggableElement);
+              if (dragRect && rect) {
+                const cx = dragRect.left + rect.width / 2;
+                const cy = dragRect.top + dragRect.height / 2;
+                dropped =
+                  cx >= rect.left &&
+                  cx <= rect.right &&
+                  cy >= rect.top &&
+                  cy <= rect.bottom;
+              }
+              return dropped;
+            },
+            ondrop: function (event) {
+              const draggableElement = event.relatedTarget;
+              const dropzoneElement = event.target;
+              dropzoneElement.classList.remove("drop-target");
+              draggableElement?.classList.remove("-drop-possible");
+            },
+            ondragenter: function (event) {
+              const draggableElement = event.relatedTarget;
+              const dropzoneElement = event.target;
+              dropzoneElement.classList.add("drop-target");
+              draggableElement?.classList.add("-drop-possible");
+            },
+            ondragleave: function (event) {
+              const draggableElement = event.relatedTarget;
+              const dropzoneElement = event.target;
+              dropzoneElement.classList.remove("drop-target");
+              draggableElement?.classList.remove("-drop-possible");
+            },
+          })
+          .on("dropactivate", function (event) {
+            event.target.classList.add("drop-activated");
+          }),
         );
+
+        onCleanup(() => {
+          zones.forEach(el => {
+            interact(el).unset();
+          });
+        });
       }
-    });
+    );
 
     return {
       cellWidth,
       rowHeight,
       getTimeline,
-      getEventWidth,
-      getEventLeft,
-      getEventRow,
+      getElemWidth,
+      getElemLeft,
+      getElemRow,
       scale,
-      onWheel,
       eventResized,
       eventDragged,
       dropzones,
@@ -440,12 +356,135 @@ export default defineComponent({
 });
 </script>
 <style scoped>
+.vs-scheduler *,
+.vs-scheduler *::before,
+.vs-scheduler *::after {
+  box-sizing: border-box;
+}
+
+.vs-scheduler {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  height: 100%;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background-color: #f3f4f6;
+  padding: 0.75rem;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.vs-first-col {
+  display: grid;
+  column-gap: 1px;
+  align-content: start;
+  border-right: 1px solid #e5e7eb;
+  border-top-left-radius: 0.5rem;
+  border-bottom-left-radius: 0.5rem;
+  background-color: #d1d5db;
+  margin-right: 1px;
+  overflow: hidden;
+  min-width: fit-content;
+}
+
+.vs-headers {
+  display: contents;
+}
+
+.vs-header-cell {
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding: 0.625rem;
+  color: #f3f4f6;
+  background-color: #64748b;
+  box-shadow: inset 0 -1px 0 0 #e5e7eb;
+}
+
+.vs-identifiers {
+  display: contents;
+}
+
+.vs-identifier-row {
+  display: contents;
+}
+
+.vs-identifier-cell {
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding: 0.625rem;
+  background-color: #ffffff;
+  color: #9ca3af;
+  box-shadow: inset 0 -1px 0 0 #e5e7eb;
+}
+
+.vs-second-col {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  border-top-right-radius: 0.5rem;
+  border-bottom-right-radius: 0.5rem;
+}
+
+.vs-timeline {
+  display: flex;
+  box-shadow: inset 0 -1px 0 0 #e5e7eb;
+}
+
+.vs-timeline-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  padding: 0.625rem;
+  border-right: 1px solid #e5e7eb;
+  background-color: #64748b;
+  color: #f3f4f6;
+  text-align: center;
+}
+
+.vs-events {
+  width: fit-content;
+  contain: paint;
+}
+
+.dropzone {
+  display: flex;
+}
+
+.vs-row-sep {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: #e5e7eb;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .dropzone.drop-target {
   background-color: rgb(213, 250, 213);
 }
 
-#events {
-  width: fit-content;
-  contain: paint;
+.dropzone.drop-target .vs-timespan {
+  filter: saturate(0.75);
+}
+
+.vs-timeslot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0.625rem;
+  border-right: 1px solid #e5e7eb;
+  color: #ffffff;
+}
+
+.vs-timespan {
+  position: absolute;
 }
 </style>

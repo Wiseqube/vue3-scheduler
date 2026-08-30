@@ -1,0 +1,66 @@
+on:
+  push:
+    branches:
+    tags: ['*\.*\.*']
+  pull_request:
+    branches: [ master ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v6
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    - run: npm ci
+    - run: npm run build --if-present
+
+    # 👇 Store the dist folder
+    - uses: actions/upload-artifact@v7
+      with:
+        name: app-build
+        path: dist
+
+  create-release:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: build
+    steps:
+    - name: Parser
+      id: parser
+      uses: johngeorgewright/parse-version-action@v2.0.0
+      with:
+         ref: ${{ github.ref }}
+         trim-start: v
+    - name: Print out parsed release version
+      run: echo Parsed release version is:${{ steps.parser.outputs.version }}
+    - name: Download Production Build Artefact
+      uses: actions/download-artifact@v8
+      with:
+        name: app-build
+        path: public/dist
+    - name: Delete Production Build Artefact
+      uses: geekyeggo/delete-artifact@v5
+      with:
+        name: app-build
+    - name: Package artifact for release 
+      run: tar -czvf "public/vue3-scheduler-${{ steps.parser.outputs.version }}-dist.tgz" -C "public/" dist 
+    - name: Upload Renamed Production Build Artefact
+      uses: actions/upload-artifact@v7
+      with:
+        name: vue3-scheduler-${{ steps.parser.outpus.version }}-dist
+        path: public/vue3-scheduler-${{ steps.parser.outputs.version }}-dist.tgz
+    - name: Create GitHub Release
+      uses: ncipollo/release-action@v1
+      with:
+        name: Release v${{ steps.parser.outputs.version }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: ${{ env.release-version }}
+        artifacts: 'public/vue3-scheduler-${{ steps.parser.outputs.version }}-dist.tgz'
+        allowUpdates: true
+        omitBody: true
+        removeArtifacts: true
+        generateReleaseNotes: true
+

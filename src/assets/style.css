@@ -1,9 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 body {
-  @apply bg-white;
-  @apply items-center;
-  @apply overflow-hidden;
+  background-color: #ffffff;
+  overflow: hidden;
 }

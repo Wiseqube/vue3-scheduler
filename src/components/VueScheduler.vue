@@ -606,7 +606,6 @@ export default defineComponent({
   height: 100%;
   border-radius: 0.5rem;
   overflow: hidden;
-  overscroll-behavior: none;
   background-color: #f3f4f6;
   padding: 0.75rem;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
